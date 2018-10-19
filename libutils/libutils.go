@@ -31,6 +31,7 @@
 package libutils
 
 import (
+    "bufio"
     "compress/bzip2"
     "compress/gzip"
     "errors"
@@ -45,6 +46,81 @@ var (
     UnknownSuffix error = errors.New("Unknown suffix")
 )
 
+// PrefixLenWriter is used to write length-prefixed strings to an io.Writer
+type PrefixLenWriter struct {
+    w io.Writer
+}
+
+// Writes the provided string as a length-prefixed string to the
+// underlying io.Writer
+func (plw *PrefixLenWriter)WriteString(s string) (int, error) {
+    return io.WriteString(plw.w, s)
+}
+
+// Writes the provided bytes as a length-prefixed string to the
+// underlying io.Writer
+func (plw *PrefixLenWriter)Write(p []byte) (int, error) {
+    prefix_len := uint(len(p))
+    len_bytes := make([]byte, 4)
+
+    len_bytes[0] = byte((prefix_len >> 24) & 0xff)
+    len_bytes[1] = byte((prefix_len >> 16) & 0xff)
+    len_bytes[2] = byte((prefix_len >> 8) & 0xff)
+    len_bytes[3] = byte(prefix_len & 0xff)
+
+    n, err := plw.w.Write(len_bytes)
+    if err != nil {
+        return n, err
+    }
+
+    n2, err := plw.w.Write(p)
+
+    return n + n2, err
+}
+
+// Returns a new PrefixLenWriter. PrefixLenWriter implements the
+// io.Writer interface, in addition to the WriteString method.
+func NewPrefixLenWriter(w io.Writer) (*PrefixLenWriter) {
+    plw := new(PrefixLenWriter)
+    plw.w = w
+
+    return plw
+}
+
+// Returns a bufio.Scanner that scans length-prefixed strings from the
+// provided io.Reader
+func NewPrefixLenScanner(r io.Reader) (*bufio.Scanner) {
+    scanner := bufio.NewScanner(r)
+    scanner.Split(ScannerPrefixLenScan)
+
+    return scanner
+}
+
+// A bufio.SplitFunc that reads length-prefixed strings from a reader
+func ScannerPrefixLenScan(data []byte, at_eof bool) (int, []byte, error) {
+    if len(data) < 4 {
+        if at_eof {
+            return len(data), nil, fmt.Errorf("invalid format")
+        }
+
+        return 0, nil, nil
+    }
+
+    prefix_len := uint(0)
+    prefix_len += (uint(data[0]) << 24) + (uint(data[1]) << 16) +
+        (uint(data[2]) << 8) + (uint(data[3]))
+
+    needed_len := prefix_len + 4
+    if uint(len(data)) < needed_len {
+        return 0, nil, nil
+    }
+
+    return int(needed_len), data[4:needed_len], nil
+}
+
+// Signature for Close() function return from OpenFileW and
+// OpenFileRO. When ready to close the file, call the function to
+// close and clean up.
 type CloseFunc func() ()
 
 // Open a file for writing. If the file name dends in a supported
