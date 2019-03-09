@@ -287,6 +287,43 @@ func AddDecompressionLayer(r io.Reader, suffix string) (io.Reader,
     return nil, nil, UnknownSuffix
 }
 
+// Runs the list of commands, piping the output of each one to the next. The
+// output of the last command is sent to the final_writer passed in.
+// Each command is represented as a slice of strings. The first element of the
+// slice should be the full path to the program to run. The remaining elements
+// of the slice should be the arguments to the program.
+//
+// The writer returned writes to the standard input of the first program
+// in the list. The CloseFunc should be called as a function when writing
+// has been completed (and before final_writer has been closed).
+func OpenPipesToWriter(final_writer io.Writer,
+    progs [][]string) (io.Writer, CloseFunc, error) {
+
+    overall_close_func := func() { }
+    writer := final_writer
+
+    last := len(progs) - 1
+    for i := range progs {
+        close_func := overall_close_func
+        prog := progs[last - i]
+        new_writer, new_close_func, err :=
+            get_writer_pipe_from_exec_with_writer(writer, prog...)
+        if err != nil {
+            overall_close_func()
+            return nil, nil, err
+        }
+
+        overall_close_func = func() {
+            new_close_func()
+            close_func()
+        }
+
+        writer = new_writer
+    }
+
+    return writer, overall_close_func, nil
+}
+
 func get_writer_pipe_from_exec_with_writer(prog_stdout io.Writer,
     prog ...string) (io.Writer, CloseFunc, error) {
 
