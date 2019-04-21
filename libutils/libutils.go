@@ -44,7 +44,135 @@ import (
 
 var (
     UnknownSuffix error = errors.New("Unknown suffix")
+    VarintNotEnoughBytes error = errors.New("Not enough bytes in varint")
 )
+
+// Decodes a varint (as used in protobuffers) into a uint64.
+// See https://developers.google.com/protocol-buffers/docs/encoding#varints
+// for the specification.
+func DecodeVarint(data_in []byte) (uint64, int, error) {
+    cnt := 0
+    max_cnt := 10 // for 64-bit int
+
+    val := uint64(0)
+    for i, b := range data_in {
+        cnt++
+        if cnt > max_cnt {
+            return 0, 0, fmt.Errorf("invalid varint encoding for 64-bit int")
+        }
+
+        val += ((uint64(b) & 0x7f) << uint(7 * i))
+
+        if (b & 0x80) == 0 {
+            break
+        }
+    }
+
+    return val, cnt, nil
+}
+
+// Encodes a uint64 as a varint (as used in protobuffers).
+// See https://developers.google.com/protocol-buffers/docs/encoding#varints
+// for the specification.
+func EncodeVarint(int_in uint64) ([]byte) {
+    data := make([]byte, 0, 10)
+    last_non_zero := 0
+    for i := 0; i < 10; i++ {
+        b := (int_in >> uint(i * 7)) & 0x7f
+        if b != 0 {
+            last_non_zero = i
+        }
+        b |= 0x80
+        data = append(data, byte(b))
+    }
+    data[last_non_zero] &= 0x7f
+
+    return data[:last_non_zero + 1]
+}
+
+// VILenPrefixWriter is used to write length-prefixed strings to an io.Writer
+type VILenPrefixWriter struct {
+    w io.Writer
+}
+
+// Writes the provided string as a length-prefixed string to the
+// underlying io.Writer
+func (plw *VILenPrefixWriter)WriteString(s string) (int, error) {
+    return io.WriteString(plw.w, s)
+}
+
+// Writes the provided bytes as a length-prefixed string to the
+// underlying io.Writer
+func (plw *VILenPrefixWriter)Write(p []byte) (int, error) {
+    prefix_len := uint64(len(p))
+    len_bytes := EncodeVarint(prefix_len)
+
+    n, err := plw.w.Write(len_bytes)
+    if err != nil {
+        return n, err
+    }
+
+    n2, err := plw.w.Write(p)
+
+    return n + n2, err
+}
+
+// Returns a new VILenPrefixWriter. VILenPrefixWriter implements the
+// io.Writer interface, in addition to the WriteString method.
+func NewVILenPrefixWriter(w io.Writer) (*VILenPrefixWriter) {
+    plw := new(VILenPrefixWriter)
+    plw.w = w
+
+    return plw
+}
+
+// Returns a bufio.Scanner that scans varint length-prefixed strings from the
+// provided io.Reader.
+func NewVILenPrefixScanner(r io.Reader) (*bufio.Scanner) {
+    scanner := bufio.NewScanner(r)
+    scanner.Split(ScannerVILenPrefixScan)
+
+    return scanner
+}
+
+// Returns a bufio.Scanner that scans varint length-prefixed strings from the
+// provided file.
+func NewVILenPrefixScannerFromFile(file_path string) (*bufio.Scanner,
+    CloseFunc, error) {
+
+    r, close_func, err := OpenFileRO(file_path)
+    if err != nil {
+        return nil, nil, err
+    }
+
+    scanner := NewVILenPrefixScanner(r)
+
+    return scanner, close_func, nil
+}
+
+// A bufio.SplitFunc that reads length-prefixed strings from a reader.
+func ScannerVILenPrefixScan(data []byte, at_eof bool) (int, []byte, error) {
+    if len(data) == 0 {
+        return 0, nil, nil
+    }
+
+    prefix_len, cnt, err := DecodeVarint(data)
+    if err != nil {
+        if err == VarintNotEnoughBytes {
+            if at_eof {
+                return len(data), nil, fmt.Errorf("invalid format")
+            }
+        }
+        return 0, nil, err
+    }
+
+    needed_len := prefix_len + uint64(cnt)
+    if uint64(len(data)) < needed_len {
+        return 0, nil, nil
+    }
+
+    return int(needed_len), data[cnt:needed_len], nil
+}
 
 // PrefixLenWriter is used to write length-prefixed strings to an io.Writer
 type PrefixLenWriter struct {
@@ -215,7 +343,7 @@ func OpenFileRO(infile string) (io.Reader, CloseFunc, error) {
 }
 
 // Adds compression to output written to writer w, if the suffix is supported.
-// 
+//
 // Supported compression:
 //    gzip  (gz)
 //    bzip2 (bz2) -- calls external program
@@ -423,4 +551,3 @@ func find_exec(file string) (string, error) {
 
     return "", fmt.Errorf("couldn't find executable %s", file)
 }
-
