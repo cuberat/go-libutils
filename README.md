@@ -24,22 +24,23 @@ Installation
 * [func DecodeVarint(data_in []byte) (uint64, int, error)](#DecodeVarint)
 * [func EncodeVarint(int_in uint64) []byte](#EncodeVarint)
 * [func NewPrefixLenScanner(r io.Reader) *bufio.Scanner](#NewPrefixLenScanner)
-* [func NewVILenPrefixScanner(r io.Reader) *bufio.Scanner](#NewVILenPrefixScanner)
-* [func NewVILenPrefixScannerFromFile(file_path string) (*bufio.Scanner, CloseFunc, error)](#NewVILenPrefixScannerFromFile)
+* [func NewVILPScanner(r io.Reader) *bufio.Scanner](#NewVILPScanner)
+* [func NewVILPScannerF(file_path string) (*bufio.Scanner, CloseFunc, error)](#NewVILPScannerF)
 * [func OpenFileRO(infile string) (io.Reader, CloseFunc, error)](#OpenFileRO)
 * [func OpenFileW(outfile string) (io.Writer, CloseFunc, error)](#OpenFileW)
 * [func OpenPipesToWriter(final_writer io.Writer, progs [][]string) (io.Writer, CloseFunc, error)](#OpenPipesToWriter)
 * [func ScannerPrefixLenScan(data []byte, at_eof bool) (int, []byte, error)](#ScannerPrefixLenScan)
-* [func ScannerVILenPrefixScan(data []byte, at_eof bool) (int, []byte, error)](#ScannerVILenPrefixScan)
+* [func ScannerVILPScan(data []byte, at_eof bool) (int, []byte, error)](#ScannerVILPScan)
 * [type CloseFunc](#CloseFunc)
 * [type PrefixLenWriter](#PrefixLenWriter)
   * [func NewPrefixLenWriter(w io.Writer) *PrefixLenWriter](#NewPrefixLenWriter)
   * [func (plw *PrefixLenWriter) Write(p []byte) (int, error)](#PrefixLenWriter.Write)
   * [func (plw *PrefixLenWriter) WriteString(s string) (int, error)](#PrefixLenWriter.WriteString)
-* [type VILenPrefixWriter](#VILenPrefixWriter)
-  * [func NewVILenPrefixWriter(w io.Writer) *VILenPrefixWriter](#NewVILenPrefixWriter)
-  * [func (plw *VILenPrefixWriter) Write(p []byte) (int, error)](#VILenPrefixWriter.Write)
-  * [func (plw *VILenPrefixWriter) WriteString(s string) (int, error)](#VILenPrefixWriter.WriteString)
+* [type VILPWriter](#VILPWriter)
+  * [func NewVILPWriter(w io.Writer) *VILPWriter](#NewVILPWriter)
+  * [func NewVILPWriterF(file_path string) (*VILPWriter, CloseFunc, error)](#NewVILPWriterF)
+  * [func (plw *VILPWriter) Write(p []byte) (int, error)](#VILPWriter.Write)
+  * [func (plw *VILPWriter) WriteString(s string) (int, error)](#VILPWriter.WriteString)
 
 
 #### <a name="pkg-files">Package files</a>
@@ -56,7 +57,7 @@ var (
 ```
 
 
-## <a name="AddCompressionLayer">func</a> [AddCompressionLayer](/src/target/libutils.go?s=10076:10162#L344)
+## <a name="AddCompressionLayer">func</a> [AddCompressionLayer](/src/target/libutils.go?s=10904:10990#L368)
 ``` go
 func AddCompressionLayer(w io.Writer, suffix string) (io.Writer,
     CloseFunc, error)
@@ -75,7 +76,7 @@ compression layer properly.
 
 
 
-## <a name="AddDecompressionLayer">func</a> [AddDecompressionLayer](/src/target/libutils.go?s=10996:11084#L380)
+## <a name="AddDecompressionLayer">func</a> [AddDecompressionLayer](/src/target/libutils.go?s=11824:11912#L404)
 ``` go
 func AddDecompressionLayer(r io.Reader, suffix string) (io.Reader,
     CloseFunc, error)
@@ -114,35 +115,37 @@ for the specification.
 
 
 
-## <a name="NewPrefixLenScanner">func</a> [NewPrefixLenScanner](/src/target/libutils.go?s=6400:6454#L210)
+## <a name="NewPrefixLenScanner">func</a> [NewPrefixLenScanner](/src/target/libutils.go?s=7157:7211#L232)
 ``` go
 func NewPrefixLenScanner(r io.Reader) *bufio.Scanner
 ```
 Returns a bufio.Scanner that scans length-prefixed strings from the
-provided io.Reader
+provided io.Reader.
+
+Deprecated: use NewVILPScanner and varint length-prefixed files.
 
 
 
-## <a name="NewVILenPrefixScanner">func</a> [NewVILenPrefixScanner](/src/target/libutils.go?s=4017:4073#L121)
+## <a name="NewVILPScanner">func</a> [NewVILPScanner](/src/target/libutils.go?s=4333:4382#L133)
 ``` go
-func NewVILenPrefixScanner(r io.Reader) *bufio.Scanner
+func NewVILPScanner(r io.Reader) *bufio.Scanner
 ```
 Returns a bufio.Scanner that scans varint length-prefixed strings from the
 provided io.Reader.
 
 
 
-## <a name="NewVILenPrefixScannerFromFile">func</a> [NewVILenPrefixScannerFromFile](/src/target/libutils.go?s=4272:4363#L130)
+## <a name="NewVILPScannerF">func</a> [NewVILPScannerF](/src/target/libutils.go?s=4629:4706#L142)
 ``` go
-func NewVILenPrefixScannerFromFile(file_path string) (*bufio.Scanner,
+func NewVILPScannerF(file_path string) (*bufio.Scanner,
     CloseFunc, error)
 ```
 Returns a bufio.Scanner that scans varint length-prefixed strings from the
-provided file.
+provided file. Call close_func() to close the underlying file handle.
 
 
 
-## <a name="OpenFileRO">func</a> [OpenFileRO](/src/target/libutils.go?s=8923:8983#L300)
+## <a name="OpenFileRO">func</a> [OpenFileRO](/src/target/libutils.go?s=9751:9811#L324)
 ``` go
 func OpenFileRO(infile string) (io.Reader, CloseFunc, error)
 ```
@@ -161,7 +164,7 @@ properly.
 
 
 
-## <a name="OpenFileW">func</a> [OpenFileW](/src/target/libutils.go?s=7686:7746#L254)
+## <a name="OpenFileW">func</a> [OpenFileW](/src/target/libutils.go?s=8514:8574#L278)
 ``` go
 func OpenFileW(outfile string) (io.Writer, CloseFunc, error)
 ```
@@ -180,7 +183,7 @@ properly.
 
 
 
-## <a name="OpenPipesToWriter">func</a> [OpenPipesToWriter](/src/target/libutils.go?s=12218:12316#L417)
+## <a name="OpenPipesToWriter">func</a> [OpenPipesToWriter](/src/target/libutils.go?s=13046:13144#L441)
 ``` go
 func OpenPipesToWriter(final_writer io.Writer,
     progs [][]string) (io.Writer, CloseFunc, error)
@@ -197,24 +200,26 @@ has been completed (and before final_writer has been closed).
 
 
 
-## <a name="ScannerPrefixLenScan">func</a> [ScannerPrefixLenScan](/src/target/libutils.go?s=6625:6697#L218)
+## <a name="ScannerPrefixLenScan">func</a> [ScannerPrefixLenScan](/src/target/libutils.go?s=7453:7525#L242)
 ``` go
 func ScannerPrefixLenScan(data []byte, at_eof bool) (int, []byte, error)
 ```
 A bufio.SplitFunc that reads length-prefixed strings from a reader
 
+Deprecated: use NewVILPScanner and varint length-prefixed files.
 
 
-## <a name="ScannerVILenPrefixScan">func</a> [ScannerVILenPrefixScan](/src/target/libutils.go?s=4622:4696#L144)
+
+## <a name="ScannerVILPScan">func</a> [ScannerVILPScan](/src/target/libutils.go?s=4958:5025#L156)
 ``` go
-func ScannerVILenPrefixScan(data []byte, at_eof bool) (int, []byte, error)
+func ScannerVILPScan(data []byte, at_eof bool) (int, []byte, error)
 ```
 A bufio.SplitFunc that reads length-prefixed strings from a reader.
 
 
 
 
-## <a name="CloseFunc">type</a> [CloseFunc](/src/target/libutils.go?s=7301:7325#L242)
+## <a name="CloseFunc">type</a> [CloseFunc](/src/target/libutils.go?s=8129:8153#L266)
 ``` go
 type CloseFunc func()
 ```
@@ -231,7 +236,7 @@ close and clean up.
 
 
 
-## <a name="PrefixLenWriter">type</a> [PrefixLenWriter](/src/target/libutils.go?s=5265:5312#L168)
+## <a name="PrefixLenWriter">type</a> [PrefixLenWriter](/src/target/libutils.go?s=5658:5705#L182)
 ``` go
 type PrefixLenWriter struct {
     // contains filtered or unexported fields
@@ -239,50 +244,58 @@ type PrefixLenWriter struct {
 ```
 PrefixLenWriter is used to write length-prefixed strings to an io.Writer
 
+Deprecated: use VILPWriter and its corresponding methods.
 
 
 
 
 
 
-### <a name="NewPrefixLenWriter">func</a> [NewPrefixLenWriter](/src/target/libutils.go?s=6184:6239#L201)
+
+### <a name="NewPrefixLenWriter">func</a> [NewPrefixLenWriter](/src/target/libutils.go?s=6869:6924#L221)
 ``` go
 func NewPrefixLenWriter(w io.Writer) *PrefixLenWriter
 ```
 Returns a new PrefixLenWriter. PrefixLenWriter implements the
 io.Writer interface, in addition to the WriteString method.
 
+Deprecated: use VILPWriter and its corresponding methods.
 
 
 
 
-### <a name="PrefixLenWriter.Write">func</a> (\*PrefixLenWriter) [Write](/src/target/libutils.go?s=5594:5649#L180)
+
+### <a name="PrefixLenWriter.Write">func</a> (\*PrefixLenWriter) [Write](/src/target/libutils.go?s=6215:6270#L198)
 ``` go
 func (plw *PrefixLenWriter) Write(p []byte) (int, error)
 ```
 Writes the provided bytes as a length-prefixed string to the
-underlying io.Writer
+underlying io.Writer. This uses 32-bit integers for the length prefix.
+
+Deprecated: use VILPWriter and its corresponding methods.
 
 
 
 
-### <a name="PrefixLenWriter.WriteString">func</a> (\*PrefixLenWriter) [WriteString](/src/target/libutils.go?s=5403:5464#L174)
+### <a name="PrefixLenWriter.WriteString">func</a> (\*PrefixLenWriter) [WriteString](/src/target/libutils.go?s=5910:5971#L190)
 ``` go
 func (plw *PrefixLenWriter) WriteString(s string) (int, error)
 ```
 Writes the provided string as a length-prefixed string to the
-underlying io.Writer
+underlying io.Writer. This uses 32-bit integers for the length prefix.
+
+Deprecated: use VILPWriter and its corresponding methods.
 
 
 
 
-## <a name="VILenPrefixWriter">type</a> [VILenPrefixWriter](/src/target/libutils.go?s=3043:3092#L84)
+## <a name="VILPWriter">type</a> [VILPWriter](/src/target/libutils.go?s=3036:3078#L84)
 ``` go
-type VILenPrefixWriter struct {
+type VILPWriter struct {
     // contains filtered or unexported fields
 }
 ```
-VILenPrefixWriter is used to write length-prefixed strings to an io.Writer
+VILPWriter is used to write length-prefixed strings to an io.Writer
 
 
 
@@ -290,20 +303,29 @@ VILenPrefixWriter is used to write length-prefixed strings to an io.Writer
 
 
 
-### <a name="NewVILenPrefixWriter">func</a> [NewVILenPrefixWriter](/src/target/libutils.go?s=3787:3846#L112)
+### <a name="NewVILPWriter">func</a> [NewVILPWriter](/src/target/libutils.go?s=3745:3790#L112)
 ``` go
-func NewVILenPrefixWriter(w io.Writer) *VILenPrefixWriter
+func NewVILPWriter(w io.Writer) *VILPWriter
 ```
-Returns a new VILenPrefixWriter. VILenPrefixWriter implements the
+Returns a new VILPWriter. VILPWriter implements the
 io.Writer interface, in addition to the WriteString method.
 
 
-
-
-
-### <a name="VILenPrefixWriter.Write">func</a> (\*VILenPrefixWriter) [Write](/src/target/libutils.go?s=3376:3433#L96)
+### <a name="NewVILPWriterF">func</a> [NewVILPWriterF](/src/target/libutils.go?s=4005:4078#L121)
 ``` go
-func (plw *VILenPrefixWriter) Write(p []byte) (int, error)
+func NewVILPWriterF(file_path string) (*VILPWriter, CloseFunc,
+    error)
+```
+Opens the provided file and returns a *VILPWriter created using the
+resulting file handle. Call close_func() to close the underlying file handle.
+
+
+
+
+
+### <a name="VILPWriter.Write">func</a> (\*VILPWriter) [Write](/src/target/libutils.go?s=3355:3405#L96)
+``` go
+func (plw *VILPWriter) Write(p []byte) (int, error)
 ```
 Writes the provided bytes as a length-prefixed string to the
 underlying io.Writer
@@ -311,9 +333,9 @@ underlying io.Writer
 
 
 
-### <a name="VILenPrefixWriter.WriteString">func</a> (\*VILenPrefixWriter) [WriteString](/src/target/libutils.go?s=3183:3246#L90)
+### <a name="VILPWriter.WriteString">func</a> (\*VILPWriter) [WriteString](/src/target/libutils.go?s=3169:3225#L90)
 ``` go
-func (plw *VILenPrefixWriter) WriteString(s string) (int, error)
+func (plw *VILPWriter) WriteString(s string) (int, error)
 ```
 Writes the provided string as a length-prefixed string to the
 underlying io.Writer
