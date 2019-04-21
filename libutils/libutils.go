@@ -90,20 +90,20 @@ func EncodeVarint(int_in uint64) ([]byte) {
     return data[:last_non_zero + 1]
 }
 
-// VILenPrefixWriter is used to write length-prefixed strings to an io.Writer
-type VILenPrefixWriter struct {
+// VILPWriter is used to write length-prefixed strings to an io.Writer
+type VILPWriter struct {
     w io.Writer
 }
 
 // Writes the provided string as a length-prefixed string to the
 // underlying io.Writer
-func (plw *VILenPrefixWriter)WriteString(s string) (int, error) {
+func (plw *VILPWriter)WriteString(s string) (int, error) {
     return io.WriteString(plw.w, s)
 }
 
 // Writes the provided bytes as a length-prefixed string to the
 // underlying io.Writer
-func (plw *VILenPrefixWriter)Write(p []byte) (int, error) {
+func (plw *VILPWriter)Write(p []byte) (int, error) {
     prefix_len := uint64(len(p))
     len_bytes := EncodeVarint(prefix_len)
 
@@ -117,27 +117,39 @@ func (plw *VILenPrefixWriter)Write(p []byte) (int, error) {
     return n + n2, err
 }
 
-// Returns a new VILenPrefixWriter. VILenPrefixWriter implements the
+// Returns a new VILPWriter. VILPWriter implements the
 // io.Writer interface, in addition to the WriteString method.
-func NewVILenPrefixWriter(w io.Writer) (*VILenPrefixWriter) {
-    plw := new(VILenPrefixWriter)
+func NewVILPWriter(w io.Writer) (*VILPWriter) {
+    plw := new(VILPWriter)
     plw.w = w
 
     return plw
 }
 
+// Opens the provided file and returns a *VILPWriter created using the
+// resulting file handle. Call close_func() to close the underlying file handle.
+func NewVILPWriterF(file_path string) (*VILPWriter, CloseFunc,
+    error) {
+    w, close_func, err := OpenFileW(file_path)
+    if err != nil {
+        return nil, nil, err
+    }
+
+    return NewVILPWriter(w), close_func, nil
+}
+
 // Returns a bufio.Scanner that scans varint length-prefixed strings from the
 // provided io.Reader.
-func NewVILenPrefixScanner(r io.Reader) (*bufio.Scanner) {
+func NewVILPScanner(r io.Reader) (*bufio.Scanner) {
     scanner := bufio.NewScanner(r)
-    scanner.Split(ScannerVILenPrefixScan)
+    scanner.Split(ScannerVILPScan)
 
     return scanner
 }
 
 // Returns a bufio.Scanner that scans varint length-prefixed strings from the
-// provided file.
-func NewVILenPrefixScannerFromFile(file_path string) (*bufio.Scanner,
+// provided file. Call close_func() to close the underlying file handle.
+func NewVILPScannerF(file_path string) (*bufio.Scanner,
     CloseFunc, error) {
 
     r, close_func, err := OpenFileRO(file_path)
@@ -145,13 +157,13 @@ func NewVILenPrefixScannerFromFile(file_path string) (*bufio.Scanner,
         return nil, nil, err
     }
 
-    scanner := NewVILenPrefixScanner(r)
+    scanner := NewVILPScanner(r)
 
     return scanner, close_func, nil
 }
 
 // A bufio.SplitFunc that reads length-prefixed strings from a reader.
-func ScannerVILenPrefixScan(data []byte, at_eof bool) (int, []byte, error) {
+func ScannerVILPScan(data []byte, at_eof bool) (int, []byte, error) {
     if len(data) == 0 {
         return 0, nil, nil
     }
@@ -175,18 +187,24 @@ func ScannerVILenPrefixScan(data []byte, at_eof bool) (int, []byte, error) {
 }
 
 // PrefixLenWriter is used to write length-prefixed strings to an io.Writer
+//
+// Deprecated: use VILPWriter and its corresponding methods.
 type PrefixLenWriter struct {
     w io.Writer
 }
 
 // Writes the provided string as a length-prefixed string to the
-// underlying io.Writer
+// underlying io.Writer. This uses 32-bit integers for the length prefix.
+//
+// Deprecated: use VILPWriter and its corresponding methods.
 func (plw *PrefixLenWriter)WriteString(s string) (int, error) {
     return io.WriteString(plw.w, s)
 }
 
 // Writes the provided bytes as a length-prefixed string to the
-// underlying io.Writer
+// underlying io.Writer. This uses 32-bit integers for the length prefix.
+//
+// Deprecated: use VILPWriter and its corresponding methods.
 func (plw *PrefixLenWriter)Write(p []byte) (int, error) {
     prefix_len := uint(len(p))
     len_bytes := make([]byte, 4)
@@ -208,6 +226,8 @@ func (plw *PrefixLenWriter)Write(p []byte) (int, error) {
 
 // Returns a new PrefixLenWriter. PrefixLenWriter implements the
 // io.Writer interface, in addition to the WriteString method.
+//
+// Deprecated: use VILPWriter and its corresponding methods.
 func NewPrefixLenWriter(w io.Writer) (*PrefixLenWriter) {
     plw := new(PrefixLenWriter)
     plw.w = w
@@ -216,7 +236,9 @@ func NewPrefixLenWriter(w io.Writer) (*PrefixLenWriter) {
 }
 
 // Returns a bufio.Scanner that scans length-prefixed strings from the
-// provided io.Reader
+// provided io.Reader.
+//
+// Deprecated: use NewVILPScanner and varint length-prefixed files.
 func NewPrefixLenScanner(r io.Reader) (*bufio.Scanner) {
     scanner := bufio.NewScanner(r)
     scanner.Split(ScannerPrefixLenScan)
@@ -225,6 +247,8 @@ func NewPrefixLenScanner(r io.Reader) (*bufio.Scanner) {
 }
 
 // A bufio.SplitFunc that reads length-prefixed strings from a reader
+//
+// Deprecated: use NewVILPScanner and varint length-prefixed files.
 func ScannerPrefixLenScan(data []byte, at_eof bool) (int, []byte, error) {
     if len(data) < 4 {
         if at_eof {
