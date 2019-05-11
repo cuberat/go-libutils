@@ -57,6 +57,15 @@ type KeyedRecordEncoder interface {
 
     // Serializes the value data structure.
     MarshalVal(interface{}) ([]byte, error)
+
+    // If this object also implements the `KeyedRecordDecoder` interface, and
+    // the encoding is the same for both input and output, CodecSame() returns
+    // true. Otherwise, it returns false.
+    //
+    // This allows for lazy encoding. That is, if the raw record bytes that were
+    // read in do not need to change, they can be written back out as-is,
+    // instead of actually re-encoding.
+    CodecSame() bool
 }
 
 type KeyedRecordDecoder interface {
@@ -246,6 +255,18 @@ func (kr *KeyedRecord) RecordBytesOut(encoder KeyedRecordEncoder) ([]byte, error
     if encoder == nil {
         return nil, fmt.Errorf("no encoder set")
     }
+
+    if kr.has_wire_data_in && kr.decoder != nil && encoder.CodecSame() {
+        if codec, ok := kr.decoder.(KeyedRecordEncoder); ok {
+            if codec == encoder {
+                // encoder and decoder are the same object, and it also
+                // specifies that we don't need to reserialize the data
+                // structure.
+                return kr.wire_data_in, nil
+            }
+        }
+    }
+
     k, v, err := kr.KeyVal()
     if err != nil {
         return nil, err
