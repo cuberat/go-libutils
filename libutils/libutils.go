@@ -48,7 +48,7 @@ var (
 )
 
 const (
-    Version = "0.9"
+    Version = "1.00"
 )
 
 type KeyedRecordEncoder interface {
