@@ -127,6 +127,15 @@ type KeyedRecord struct {
     encoder KeyedRecordEncoder
 }
 
+
+// Mark the KeyedRecord dirty such that will reserialize the value data
+// structure even if the encoder and encoder are the same and
+// encoder.CodecSame() returns true.
+func (kr *KeyedRecord) MarkDirty() {
+    kr.has_wire_data_in = false
+    kr.has_val_bytes_in = false
+}
+
 // Parse the raw record from wire data, using the provided decoder. The decoder
 // is stored internally for later use.
 func NewKeyedRecordFromBytes(raw_rec_bytes []byte,
