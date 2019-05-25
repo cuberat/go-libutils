@@ -48,7 +48,7 @@ var (
 )
 
 const (
-    Version = "1.00"
+    Version = "1.01"
 )
 
 type KeyedRecordEncoder interface {
@@ -76,7 +76,6 @@ type KeyedRecordDecoder interface {
     // Deserializes the value.
     UnmarshalVal([]byte) (interface{}, error)
 }
-
 
 type KeyedRecordScanner interface {
     // Advances the scanner to the next record. It returns false when the scan
@@ -332,6 +331,17 @@ func EncodeVarint(int_in uint64) ([]byte) {
     return data[:last_non_zero + 1]
 }
 
+// Returns a byte slice with a varint length prefix followed by the provided
+// byte slice.
+func BytesToVILP(data []byte) ([]byte) {
+    prefix := EncodeVarint(uint64(len(data)))
+    val := make([]byte, 0, len(prefix) + len(data))
+    val = append(val, prefix...)
+    val = append(val, data...)
+
+    return val
+}
+
 // VILPWriter is used to write length-prefixed strings to an io.Writer
 type VILPWriter struct {
     w io.Writer
@@ -340,23 +350,14 @@ type VILPWriter struct {
 // Writes the provided string as a length-prefixed string to the
 // underlying io.Writer
 func (plw *VILPWriter)WriteString(s string) (int, error) {
-    return io.WriteString(plw.w, s)
+    prefix := EncodeVarint(uint64(len(s)))
+    return io.WriteString(plw.w, string(prefix) + s)
 }
 
 // Writes the provided bytes as a length-prefixed string to the
 // underlying io.Writer
 func (plw *VILPWriter)Write(p []byte) (int, error) {
-    prefix_len := uint64(len(p))
-    len_bytes := EncodeVarint(prefix_len)
-
-    n, err := plw.w.Write(len_bytes)
-    if err != nil {
-        return n, err
-    }
-
-    n2, err := plw.w.Write(p)
-
-    return n + n2, err
+    return plw.w.Write(BytesToVILP(p))
 }
 
 // Returns a new VILPWriter. VILPWriter implements the
@@ -387,6 +388,126 @@ func NewVILPScanner(r io.Reader) (*bufio.Scanner) {
     scanner.Split(ScannerVILPScan)
 
     return scanner
+}
+
+// Implements the KeyedRecordEncoder and KeyedRecordDecoder interfaces specified
+// by `github.com/cuberat/go-libutils/libutils`.
+//
+type VILPColsKRCodec struct {
+
+}
+
+func NewVILPColsKRCodec () (*VILPColsKRCodec) {
+    return new(VILPColsKRCodec)
+}
+
+// Splits the record, returning the key and the serialized value data
+// structure.
+func (krc *VILPColsKRCodec) SplitKV(wire_data []byte) ([]byte, []byte,
+    error) {
+    key_len, vi_len, err := DecodeVarint(wire_data)
+    if err != nil {
+        return nil, nil, fmt.Errorf("couldn't decode varint in SplitKV(): %s",
+            err)
+    }
+
+    if uint64(len(wire_data)) < uint64(vi_len) + key_len {
+        return []byte{}, []byte{},
+        fmt.Errorf("wire_data too short in SplitKV()")
+    }
+
+    data := wire_data[vi_len:]
+
+    key := data[:key_len]
+    val := data[key_len:]
+
+    return key, val, nil
+}
+
+// Deserializes the value.
+func (krc *VILPColsKRCodec) UnmarshalVal(val_bytes []byte) (interface{},
+    error) {
+    rest_val := val_bytes
+
+    values := make([][]byte, 0)
+    for len(rest_val) > 0 {
+        val_len, vi_len, err := DecodeVarint(rest_val)
+        if err != nil {
+            return nil, fmt.Errorf("bad varint while parsing value")
+        }
+        if uint64(len(rest_val)) < uint64(vi_len) + val_len {
+            return nil, fmt.Errorf("data to short while parsing value")
+        }
+        rest_val = rest_val[vi_len:]
+        val := rest_val[:val_len]
+        values = append(values, val)
+        rest_val = rest_val[val_len:]
+    }
+
+    return values, nil
+}
+
+// Joins the key and value bytes, returning the serialized record.
+func (krc *VILPColsKRCodec) JoinKV(key, val []byte) ([]byte, error) {
+    key_len_bytes := EncodeVarint(uint64(len(key)))
+    rec := make([]byte, 0, len(key_len_bytes) + len(key) + len(val))
+    rec = append(rec, key_len_bytes...)
+    rec = append(rec, key...)
+    rec = append(rec, val...)
+
+    return rec, nil
+}
+
+// Serializes the value data structure.
+func (krc *VILPColsKRCodec) MarshalVal(data interface{}) ([]byte, error) {
+    val_slice, ok := data.([][]byte)
+    if !ok {
+        return nil, fmt.Errorf("MarshalVal(): expected [][]byte, got %T", data)
+    }
+
+    val_bytes := make([]byte, 0)
+    for _, val := range val_slice {
+        prefix := EncodeVarint(uint64(len(val)))
+        val_bytes = append(val_bytes, prefix...)
+        val_bytes = append(val_bytes, val...)
+    }
+
+    return val_bytes, nil
+}
+
+// Returns true so that if this codec is used for both encoder and decoder,
+// unnecessary re-serialization can be avoided.
+//
+// This allows for lazy encoding. That is, if the raw record bytes that were
+// read in do not need to change, they can be written back out as-is, instead of
+// actually re-encoding.
+func (krc *VILPColsKRCodec) CodecSame() bool {
+    return true
+}
+
+// Implements the `libutils.KeyedRecordWriter` interface from
+// `github.com/cuberat/go-libutils/libutils`.
+type VILPColsKRWriter struct {
+    encoder KeyedRecordEncoder
+    vilp_writer *VILPWriter
+}
+
+// Returns a new VILPColsKRWriter.
+func NewVILPColsKRWriter (w io.Writer) (*VILPColsKRWriter) {
+    krw := new(VILPColsKRWriter)
+    krw.vilp_writer = NewVILPWriter(w)
+    krw.encoder = NewVILPColsKRCodec()
+
+    return krw
+}
+
+func (krw *VILPColsKRWriter) Write(rec *KeyedRecord) (int, error) {
+    rec_out_bytes, err := rec.RecordBytesOut(krw.encoder)
+    if err != nil {
+        return 0, err
+    }
+
+    return krw.vilp_writer.Write(rec_out_bytes)
 }
 
 // Returns a bufio.Scanner that scans varint length-prefixed strings from the
