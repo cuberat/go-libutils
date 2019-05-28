@@ -22,6 +22,7 @@ Installation
 * [Variables](#pkg-variables)
 * [func AddCompressionLayer(w io.Writer, suffix string) (io.Writer, CloseFunc, error)](#AddCompressionLayer)
 * [func AddDecompressionLayer(r io.Reader, suffix string) (io.Reader, CloseFunc, error)](#AddDecompressionLayer)
+* [func BytesToVILP(data []byte) []byte](#BytesToVILP)
 * [func DecodeVarint(data_in []byte) (uint64, int, error)](#DecodeVarint)
 * [func EncodeVarint(int_in uint64) []byte](#EncodeVarint)
 * [func NewPrefixLenScanner(r io.Reader) *bufio.Scanner](#NewPrefixLenScanner)
@@ -52,6 +53,21 @@ Installation
   * [func NewPrefixLenWriter(w io.Writer) *PrefixLenWriter](#NewPrefixLenWriter)
   * [func (plw *PrefixLenWriter) Write(p []byte) (int, error)](#PrefixLenWriter.Write)
   * [func (plw *PrefixLenWriter) WriteString(s string) (int, error)](#PrefixLenWriter.WriteString)
+* [type VILPColsKRCodec](#VILPColsKRCodec)
+  * [func NewVILPColsKRCodec() *VILPColsKRCodec](#NewVILPColsKRCodec)
+  * [func (krc *VILPColsKRCodec) CodecSame() bool](#VILPColsKRCodec.CodecSame)
+  * [func (krc *VILPColsKRCodec) JoinKV(key, val []byte) ([]byte, error)](#VILPColsKRCodec.JoinKV)
+  * [func (krc *VILPColsKRCodec) MarshalVal(data interface{}) ([]byte, error)](#VILPColsKRCodec.MarshalVal)
+  * [func (krc *VILPColsKRCodec) SplitKV(wire_data []byte) ([]byte, []byte, error)](#VILPColsKRCodec.SplitKV)
+  * [func (krc *VILPColsKRCodec) UnmarshalVal(val_bytes []byte) (interface{}, error)](#VILPColsKRCodec.UnmarshalVal)
+* [type VILPColsKRScanner](#VILPColsKRScanner)
+  * [func NewVILPColsKRScanner(r io.Reader) *VILPColsKRScanner](#NewVILPColsKRScanner)
+  * [func (krs *VILPColsKRScanner) Err() error](#VILPColsKRScanner.Err)
+  * [func (krs *VILPColsKRScanner) Record() *KeyedRecord](#VILPColsKRScanner.Record)
+  * [func (krs *VILPColsKRScanner) Scan() bool](#VILPColsKRScanner.Scan)
+* [type VILPColsKRWriter](#VILPColsKRWriter)
+  * [func NewVILPColsKRWriter(w io.Writer) *VILPColsKRWriter](#NewVILPColsKRWriter)
+  * [func (krw *VILPColsKRWriter) Write(rec *KeyedRecord) (int, error)](#VILPColsKRWriter.Write)
 * [type VILPWriter](#VILPWriter)
   * [func NewVILPWriter(w io.Writer) *VILPWriter](#NewVILPWriter)
   * [func NewVILPWriterF(file_path string) (*VILPWriter, CloseFunc, error)](#NewVILPWriterF)
@@ -60,13 +76,13 @@ Installation
 
 
 #### <a name="pkg-files">Package files</a>
-[libutils.go](/src/github.com/cuberat/go-libutils/libutils/libutils.go) 
+[keyed_record.go](/src/github.com/cuberat/go-libutils/libutils/keyed_record.go) [libutils.go](/src/github.com/cuberat/go-libutils/libutils/libutils.go) [prefix_len.go](/src/github.com/cuberat/go-libutils/libutils/prefix_len.go) [varint.go](/src/github.com/cuberat/go-libutils/libutils/varint.go) [vilp.go](/src/github.com/cuberat/go-libutils/libutils/vilp.go) [vilp_cols_kr.go](/src/github.com/cuberat/go-libutils/libutils/vilp_cols_kr.go) 
 
 
 ## <a name="pkg-constants">Constants</a>
 ``` go
 const (
-    Version = "1.00"
+    Version = "1.01"
 )
 ```
 
@@ -79,7 +95,7 @@ var (
 ```
 
 
-## <a name="AddCompressionLayer">func</a> [AddCompressionLayer](/src/target/libutils.go?s=18144:18230#L610)
+## <a name="AddCompressionLayer">func</a> [AddCompressionLayer](/src/target/libutils.go?s=4785:4871#L148)
 ``` go
 func AddCompressionLayer(w io.Writer, suffix string) (io.Writer,
     CloseFunc, error)
@@ -98,7 +114,7 @@ compression layer properly.
 
 
 
-## <a name="AddDecompressionLayer">func</a> [AddDecompressionLayer](/src/target/libutils.go?s=19064:19152#L646)
+## <a name="AddDecompressionLayer">func</a> [AddDecompressionLayer](/src/target/libutils.go?s=5705:5793#L184)
 ``` go
 func AddDecompressionLayer(r io.Reader, suffix string) (io.Reader,
     CloseFunc, error)
@@ -117,7 +133,16 @@ decompression layer properly.
 
 
 
-## <a name="DecodeVarint">func</a> [DecodeVarint](/src/target/libutils.go?s=9244:9298#L285)
+## <a name="BytesToVILP">func</a> [BytesToVILP](/src/target/vilp.go?s=1560:1598#L26)
+``` go
+func BytesToVILP(data []byte) []byte
+```
+Returns a byte slice with a varint length prefix followed by the provided
+byte slice.
+
+
+
+## <a name="DecodeVarint">func</a> [DecodeVarint](/src/target/varint.go?s=1610:1664#L25)
 ``` go
 func DecodeVarint(data_in []byte) (uint64, int, error)
 ```
@@ -127,7 +152,7 @@ for the specification.
 
 
 
-## <a name="EncodeVarint">func</a> [EncodeVarint](/src/target/libutils.go?s=9839:9880#L309)
+## <a name="EncodeVarint">func</a> [EncodeVarint](/src/target/varint.go?s=2205:2246#L49)
 ``` go
 func EncodeVarint(int_in uint64) []byte
 ```
@@ -137,7 +162,7 @@ for the specification.
 
 
 
-## <a name="NewPrefixLenScanner">func</a> [NewPrefixLenScanner](/src/target/libutils.go?s=14397:14451#L474)
+## <a name="NewPrefixLenScanner">func</a> [NewPrefixLenScanner](/src/target/prefix_len.go?s=3107:3161#L77)
 ``` go
 func NewPrefixLenScanner(r io.Reader) *bufio.Scanner
 ```
@@ -148,7 +173,7 @@ Deprecated: use NewVILPScanner and varint length-prefixed files.
 
 
 
-## <a name="NewVILPScanner">func</a> [NewVILPScanner](/src/target/libutils.go?s=11573:11622#L375)
+## <a name="NewVILPScanner">func</a> [NewVILPScanner](/src/target/vilp.go?s=3033:3082#L76)
 ``` go
 func NewVILPScanner(r io.Reader) *bufio.Scanner
 ```
@@ -157,7 +182,7 @@ provided io.Reader.
 
 
 
-## <a name="NewVILPScannerF">func</a> [NewVILPScannerF](/src/target/libutils.go?s=11869:11946#L384)
+## <a name="NewVILPScannerF">func</a> [NewVILPScannerF](/src/target/vilp.go?s=3329:3406#L85)
 ``` go
 func NewVILPScannerF(file_path string) (*bufio.Scanner,
     CloseFunc, error)
@@ -167,7 +192,7 @@ provided file. Call close_func() to close the underlying file handle.
 
 
 
-## <a name="OpenFileRO">func</a> [OpenFileRO](/src/target/libutils.go?s=16991:17051#L566)
+## <a name="OpenFileRO">func</a> [OpenFileRO](/src/target/libutils.go?s=3632:3692#L104)
 ``` go
 func OpenFileRO(infile string) (io.Reader, CloseFunc, error)
 ```
@@ -186,7 +211,7 @@ properly.
 
 
 
-## <a name="OpenFileW">func</a> [OpenFileW](/src/target/libutils.go?s=15754:15814#L520)
+## <a name="OpenFileW">func</a> [OpenFileW](/src/target/libutils.go?s=2395:2455#L58)
 ``` go
 func OpenFileW(outfile string) (io.Writer, CloseFunc, error)
 ```
@@ -205,7 +230,7 @@ properly.
 
 
 
-## <a name="OpenPipesToWriter">func</a> [OpenPipesToWriter](/src/target/libutils.go?s=20286:20384#L683)
+## <a name="OpenPipesToWriter">func</a> [OpenPipesToWriter](/src/target/libutils.go?s=6927:7025#L221)
 ``` go
 func OpenPipesToWriter(final_writer io.Writer,
     progs [][]string) (io.Writer, CloseFunc, error)
@@ -222,7 +247,7 @@ has been completed (and before final_writer has been closed).
 
 
 
-## <a name="ScannerPrefixLenScan">func</a> [ScannerPrefixLenScan](/src/target/libutils.go?s=14693:14765#L484)
+## <a name="ScannerPrefixLenScan">func</a> [ScannerPrefixLenScan](/src/target/prefix_len.go?s=3403:3475#L87)
 ``` go
 func ScannerPrefixLenScan(data []byte, at_eof bool) (int, []byte, error)
 ```
@@ -232,7 +257,7 @@ Deprecated: use NewVILPScanner and varint length-prefixed files.
 
 
 
-## <a name="ScannerVILPScan">func</a> [ScannerVILPScan](/src/target/libutils.go?s=12198:12265#L398)
+## <a name="ScannerVILPScan">func</a> [ScannerVILPScan](/src/target/vilp.go?s=3658:3725#L99)
 ``` go
 func ScannerVILPScan(data []byte, at_eof bool) (int, []byte, error)
 ```
@@ -241,7 +266,7 @@ A bufio.SplitFunc that reads length-prefixed strings from a reader.
 
 
 
-## <a name="CloseFunc">type</a> [CloseFunc](/src/target/libutils.go?s=15369:15393#L508)
+## <a name="CloseFunc">type</a> [CloseFunc](/src/target/libutils.go?s=2010:2034#L46)
 ``` go
 type CloseFunc func()
 ```
@@ -258,7 +283,7 @@ close and clean up.
 
 
 
-## <a name="KeyedRecord">type</a> [KeyedRecord](/src/target/libutils.go?s=4331:4604#L106)
+## <a name="KeyedRecord">type</a> [KeyedRecord](/src/target/keyed_record.go?s=3904:4177#L83)
 ``` go
 type KeyedRecord struct {
     // contains filtered or unexported fields
@@ -290,7 +315,7 @@ output format, e.g., to variable integer length-prefixed records.
 
 
 
-### <a name="NewKeyedRecordFromBytes">func</a> [NewKeyedRecordFromBytes](/src/target/libutils.go?s=5001:5098#L131)
+### <a name="NewKeyedRecordFromBytes">func</a> [NewKeyedRecordFromBytes](/src/target/keyed_record.go?s=4574:4671#L108)
 ``` go
 func NewKeyedRecordFromBytes(raw_rec_bytes []byte,
     decoder KeyedRecordDecoder) *KeyedRecord
@@ -299,7 +324,7 @@ Parse the raw record from wire data, using the provided decoder. The decoder
 is stored internally for later use.
 
 
-### <a name="NewKeyedRecordFromKeyVal">func</a> [NewKeyedRecordFromKeyVal](/src/target/libutils.go?s=5295:5368#L142)
+### <a name="NewKeyedRecordFromKeyVal">func</a> [NewKeyedRecordFromKeyVal](/src/target/keyed_record.go?s=4868:4941#L119)
 ``` go
 func NewKeyedRecordFromKeyVal(key []byte, val interface{}) *KeyedRecord
 ```
@@ -309,7 +334,7 @@ Create a new KeyedRecord object from a key and value.
 
 
 
-### <a name="KeyedRecord.Key">func</a> (\*KeyedRecord) [Key](/src/target/libutils.go?s=5871:5915#L163)
+### <a name="KeyedRecord.Key">func</a> (\*KeyedRecord) [Key](/src/target/keyed_record.go?s=5444:5488#L140)
 ``` go
 func (kr *KeyedRecord) Key() ([]byte, error)
 ```
@@ -318,7 +343,7 @@ Parse out the key from the record (if necessary) and return it.
 
 
 
-### <a name="KeyedRecord.KeyString">func</a> (\*KeyedRecord) [KeyString](/src/target/libutils.go?s=6738:6788#L196)
+### <a name="KeyedRecord.KeyString">func</a> (\*KeyedRecord) [KeyString](/src/target/keyed_record.go?s=6311:6361#L173)
 ``` go
 func (kr *KeyedRecord) KeyString() (string, error)
 ```
@@ -327,7 +352,7 @@ Parse out the key from the record (if necessary) and return it as a string.
 
 
 
-### <a name="KeyedRecord.KeyVal">func</a> (\*KeyedRecord) [KeyVal](/src/target/libutils.go?s=7634:7694#L228)
+### <a name="KeyedRecord.KeyVal">func</a> (\*KeyedRecord) [KeyVal](/src/target/keyed_record.go?s=7207:7267#L205)
 ``` go
 func (kr *KeyedRecord) KeyVal() ([]byte, interface{}, error)
 ```
@@ -336,7 +361,7 @@ Parse out (if necessary) the key and value, returning both.
 
 
 
-### <a name="KeyedRecord.MarkDirty">func</a> (\*KeyedRecord) [MarkDirty](/src/target/libutils.go?s=4778:4812#L124)
+### <a name="KeyedRecord.MarkDirty">func</a> (\*KeyedRecord) [MarkDirty](/src/target/keyed_record.go?s=4351:4385#L101)
 ``` go
 func (kr *KeyedRecord) MarkDirty()
 ```
@@ -347,7 +372,7 @@ encoder.CodecSame() returns true.
 
 
 
-### <a name="KeyedRecord.RecordBytesOut">func</a> (\*KeyedRecord) [RecordBytesOut](/src/target/libutils.go?s=8125:8206#L246)
+### <a name="KeyedRecord.RecordBytesOut">func</a> (\*KeyedRecord) [RecordBytesOut](/src/target/keyed_record.go?s=7698:7779#L223)
 ``` go
 func (kr *KeyedRecord) RecordBytesOut(encoder KeyedRecordEncoder) ([]byte, error)
 ```
@@ -356,7 +381,7 @@ Serialize the record into a slice of bytes using the provided encoder.
 
 
 
-### <a name="KeyedRecord.SetDecoder">func</a> (\*KeyedRecord) [SetDecoder](/src/target/libutils.go?s=5572:5629#L153)
+### <a name="KeyedRecord.SetDecoder">func</a> (\*KeyedRecord) [SetDecoder](/src/target/keyed_record.go?s=5145:5202#L130)
 ``` go
 func (kr *KeyedRecord) SetDecoder(dec KeyedRecordDecoder)
 ```
@@ -365,7 +390,7 @@ Set the decoder object within the KeyedRecord for later use.
 
 
 
-### <a name="KeyedRecord.SetEncoder">func</a> (\*KeyedRecord) [SetEncoder](/src/target/libutils.go?s=5720:5777#L158)
+### <a name="KeyedRecord.SetEncoder">func</a> (\*KeyedRecord) [SetEncoder](/src/target/keyed_record.go?s=5293:5350#L135)
 ``` go
 func (kr *KeyedRecord) SetEncoder(enc KeyedRecordEncoder)
 ```
@@ -374,7 +399,7 @@ Set the encoder object within the KeyedRecord for later use.
 
 
 
-### <a name="KeyedRecord.Val">func</a> (\*KeyedRecord) [Val](/src/target/libutils.go?s=7058:7107#L206)
+### <a name="KeyedRecord.Val">func</a> (\*KeyedRecord) [Val](/src/target/keyed_record.go?s=6631:6680#L183)
 ``` go
 func (kr *KeyedRecord) Val() (interface{}, error)
 ```
@@ -388,7 +413,7 @@ type, e.g.,
 
 
 
-## <a name="KeyedRecordDecoder">type</a> [KeyedRecordDecoder](/src/target/libutils.go?s=2546:2797#L61)
+## <a name="KeyedRecordDecoder">type</a> [KeyedRecordDecoder](/src/target/keyed_record.go?s=2120:2371#L39)
 ``` go
 type KeyedRecordDecoder interface {
     // Splits the record, returning the key and the serialized value data
@@ -408,7 +433,7 @@ type KeyedRecordDecoder interface {
 
 
 
-## <a name="KeyedRecordEncoder">type</a> [KeyedRecordEncoder](/src/target/libutils.go?s=1873:2544#L44)
+## <a name="KeyedRecordEncoder">type</a> [KeyedRecordEncoder](/src/target/keyed_record.go?s=1447:2118#L22)
 ``` go
 type KeyedRecordEncoder interface {
     // Joins the key and value bytes, returning the serialized record.
@@ -436,7 +461,7 @@ type KeyedRecordEncoder interface {
 
 
 
-## <a name="KeyedRecordScanner">type</a> [KeyedRecordScanner](/src/target/libutils.go?s=2800:3201#L71)
+## <a name="KeyedRecordScanner">type</a> [KeyedRecordScanner](/src/target/keyed_record.go?s=2373:2774#L48)
 ``` go
 type KeyedRecordScanner interface {
     // Advances the scanner to the next record. It returns false when the scan
@@ -459,7 +484,7 @@ type KeyedRecordScanner interface {
 
 
 
-## <a name="KeyedRecordWriter">type</a> [KeyedRecordWriter](/src/target/libutils.go?s=3203:3319#L83)
+## <a name="KeyedRecordWriter">type</a> [KeyedRecordWriter](/src/target/keyed_record.go?s=2776:2892#L60)
 ``` go
 type KeyedRecordWriter interface {
     // Writes the entire seralized record.
@@ -475,7 +500,7 @@ type KeyedRecordWriter interface {
 
 
 
-## <a name="PrefixLenWriter">type</a> [PrefixLenWriter](/src/target/libutils.go?s=12898:12945#L424)
+## <a name="PrefixLenWriter">type</a> [PrefixLenWriter](/src/target/prefix_len.go?s=1608:1655#L27)
 ``` go
 type PrefixLenWriter struct {
     // contains filtered or unexported fields
@@ -491,7 +516,7 @@ Deprecated: use VILPWriter and its corresponding methods.
 
 
 
-### <a name="NewPrefixLenWriter">func</a> [NewPrefixLenWriter](/src/target/libutils.go?s=14109:14164#L463)
+### <a name="NewPrefixLenWriter">func</a> [NewPrefixLenWriter](/src/target/prefix_len.go?s=2819:2874#L66)
 ``` go
 func NewPrefixLenWriter(w io.Writer) *PrefixLenWriter
 ```
@@ -504,7 +529,7 @@ Deprecated: use VILPWriter and its corresponding methods.
 
 
 
-### <a name="PrefixLenWriter.Write">func</a> (\*PrefixLenWriter) [Write](/src/target/libutils.go?s=13455:13510#L440)
+### <a name="PrefixLenWriter.Write">func</a> (\*PrefixLenWriter) [Write](/src/target/prefix_len.go?s=2165:2220#L43)
 ``` go
 func (plw *PrefixLenWriter) Write(p []byte) (int, error)
 ```
@@ -516,7 +541,7 @@ Deprecated: use VILPWriter and its corresponding methods.
 
 
 
-### <a name="PrefixLenWriter.WriteString">func</a> (\*PrefixLenWriter) [WriteString](/src/target/libutils.go?s=13150:13211#L432)
+### <a name="PrefixLenWriter.WriteString">func</a> (\*PrefixLenWriter) [WriteString](/src/target/prefix_len.go?s=1860:1921#L35)
 ``` go
 func (plw *PrefixLenWriter) WriteString(s string) (int, error)
 ```
@@ -528,7 +553,175 @@ Deprecated: use VILPWriter and its corresponding methods.
 
 
 
-## <a name="VILPWriter">type</a> [VILPWriter](/src/target/libutils.go?s=10276:10318#L326)
+## <a name="VILPColsKRCodec">type</a> [VILPColsKRCodec](/src/target/vilp_cols_kr.go?s=1884:1916#L32)
+``` go
+type VILPColsKRCodec struct {
+}
+```
+Implements the KeyedRecordEncoder and KeyedRecordDecoder interfaces specified
+by `github.com/cuberat/go-libutils/libutils`.
+
+This codec serializes and deserializes keyed records where the is
+length-prefixed using a varint. The value immediately follows and consists of
+length-prefixed strings represented an array/list of strings. That is,
+
+
+	<key_len><key><val1_len><val1><val2_len><val2>...
+
+
+
+
+
+
+
+### <a name="NewVILPColsKRCodec">func</a> [NewVILPColsKRCodec](/src/target/vilp_cols_kr.go?s=1918:1963#L36)
+``` go
+func NewVILPColsKRCodec() *VILPColsKRCodec
+```
+
+
+
+
+### <a name="VILPColsKRCodec.CodecSame">func</a> (\*VILPColsKRCodec) [CodecSame](/src/target/vilp_cols_kr.go?s=4487:4531#L120)
+``` go
+func (krc *VILPColsKRCodec) CodecSame() bool
+```
+Returns true so that if this codec is used for both encoder and decoder,
+unnecessary re-serialization can be avoided.
+
+This allows for lazy encoding. That is, if the raw record bytes that were
+read in do not need to change, they can be written back out as-is, instead of
+actually re-encoding.
+
+
+
+
+### <a name="VILPColsKRCodec.JoinKV">func</a> (\*VILPColsKRCodec) [JoinKV](/src/target/vilp_cols_kr.go?s=3361:3428#L87)
+``` go
+func (krc *VILPColsKRCodec) JoinKV(key, val []byte) ([]byte, error)
+```
+Joins the key and value bytes, returning the serialized record.
+
+
+
+
+### <a name="VILPColsKRCodec.MarshalVal">func</a> (\*VILPColsKRCodec) [MarshalVal](/src/target/vilp_cols_kr.go?s=3716:3788#L98)
+``` go
+func (krc *VILPColsKRCodec) MarshalVal(data interface{}) ([]byte, error)
+```
+Serializes the value data structure.
+
+
+
+
+### <a name="VILPColsKRCodec.SplitKV">func</a> (\*VILPColsKRCodec) [SplitKV](/src/target/vilp_cols_kr.go?s=2085:2166#L42)
+``` go
+func (krc *VILPColsKRCodec) SplitKV(wire_data []byte) ([]byte, []byte,
+    error)
+```
+Splits the record, returning the key and the serialized value data
+structure.
+
+
+
+
+### <a name="VILPColsKRCodec.UnmarshalVal">func</a> (\*VILPColsKRCodec) [UnmarshalVal](/src/target/vilp_cols_kr.go?s=2640:2723#L64)
+``` go
+func (krc *VILPColsKRCodec) UnmarshalVal(val_bytes []byte) (interface{},
+    error)
+```
+Deserializes the value.
+
+
+
+
+## <a name="VILPColsKRScanner">type</a> [VILPColsKRScanner](/src/target/vilp_cols_kr.go?s=5371:5462#L152)
+``` go
+type VILPColsKRScanner struct {
+    // contains filtered or unexported fields
+}
+```
+Scanner for varint length-prefixed keyed records with column-based values.
+That is, the value is an array/list of strings, each one prefixed with a
+length.
+
+
+
+
+
+
+
+### <a name="NewVILPColsKRScanner">func</a> [NewVILPColsKRScanner](/src/target/vilp_cols_kr.go?s=5498:5557#L158)
+``` go
+func NewVILPColsKRScanner(r io.Reader) *VILPColsKRScanner
+```
+Return a new VILPColsKRScanner
+
+
+
+
+
+### <a name="VILPColsKRScanner.Err">func</a> (\*VILPColsKRScanner) [Err](/src/target/vilp_cols_kr.go?s=6299:6340#L182)
+``` go
+func (krs *VILPColsKRScanner) Err() error
+```
+Returns the first non-EOF error that was encountered by the Scanner.
+
+
+
+
+### <a name="VILPColsKRScanner.Record">func</a> (\*VILPColsKRScanner) [Record](/src/target/vilp_cols_kr.go?s=5979:6032#L173)
+``` go
+func (krs *VILPColsKRScanner) Record() *KeyedRecord
+```
+Returns the most recent serialized record generated by a call to Scan().
+
+
+
+
+### <a name="VILPColsKRScanner.Scan">func</a> (\*VILPColsKRScanner) [Scan](/src/target/vilp_cols_kr.go?s=5826:5867#L168)
+``` go
+func (krs *VILPColsKRScanner) Scan() bool
+```
+Advances the scanner to the next record. It returns false when the scan
+stops, either by reaching the end of the input or an error.
+
+
+
+
+## <a name="VILPColsKRWriter">type</a> [VILPColsKRWriter](/src/target/vilp_cols_kr.go?s=4661:4752#L126)
+``` go
+type VILPColsKRWriter struct {
+    // contains filtered or unexported fields
+}
+```
+Implements the `libutils.KeyedRecordWriter` interface from
+`github.com/cuberat/go-libutils/libutils`.
+
+
+
+
+
+
+
+### <a name="NewVILPColsKRWriter">func</a> [NewVILPColsKRWriter](/src/target/vilp_cols_kr.go?s=4789:4847#L132)
+``` go
+func NewVILPColsKRWriter(w io.Writer) *VILPColsKRWriter
+```
+Returns a new VILPColsKRWriter.
+
+
+
+
+
+### <a name="VILPColsKRWriter.Write">func</a> (\*VILPColsKRWriter) [Write](/src/target/vilp_cols_kr.go?s=4980:5045#L140)
+``` go
+func (krw *VILPColsKRWriter) Write(rec *KeyedRecord) (int, error)
+```
+
+
+
+## <a name="VILPWriter">type</a> [VILPWriter](/src/target/vilp.go?s=1853:1895#L36)
 ``` go
 type VILPWriter struct {
     // contains filtered or unexported fields
@@ -542,7 +735,7 @@ VILPWriter is used to write length-prefixed strings to an io.Writer
 
 
 
-### <a name="NewVILPWriter">func</a> [NewVILPWriter](/src/target/libutils.go?s=10985:11030#L354)
+### <a name="NewVILPWriter">func</a> [NewVILPWriter](/src/target/vilp.go?s=2445:2490#L55)
 ``` go
 func NewVILPWriter(w io.Writer) *VILPWriter
 ```
@@ -550,7 +743,7 @@ Returns a new VILPWriter. VILPWriter implements the
 io.Writer interface, in addition to the WriteString method.
 
 
-### <a name="NewVILPWriterF">func</a> [NewVILPWriterF](/src/target/libutils.go?s=11245:11318#L363)
+### <a name="NewVILPWriterF">func</a> [NewVILPWriterF](/src/target/vilp.go?s=2705:2778#L64)
 ``` go
 func NewVILPWriterF(file_path string) (*VILPWriter, CloseFunc,
     error)
@@ -562,7 +755,7 @@ resulting file handle. Call close_func() to close the underlying file handle.
 
 
 
-### <a name="VILPWriter.Write">func</a> (\*VILPWriter) [Write](/src/target/libutils.go?s=10595:10645#L338)
+### <a name="VILPWriter.Write">func</a> (\*VILPWriter) [Write](/src/target/vilp.go?s=2232:2282#L49)
 ``` go
 func (plw *VILPWriter) Write(p []byte) (int, error)
 ```
@@ -572,7 +765,7 @@ underlying io.Writer
 
 
 
-### <a name="VILPWriter.WriteString">func</a> (\*VILPWriter) [WriteString](/src/target/libutils.go?s=10409:10465#L332)
+### <a name="VILPWriter.WriteString">func</a> (\*VILPWriter) [WriteString](/src/target/vilp.go?s=1986:2042#L42)
 ``` go
 func (plw *VILPWriter) WriteString(s string) (int, error)
 ```
