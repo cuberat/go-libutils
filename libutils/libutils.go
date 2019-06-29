@@ -38,6 +38,8 @@ import (
     "io"
     "os"
     "os/exec"
+    "path"
+    "runtime"
     "strings"
 )
 
@@ -47,8 +49,39 @@ var (
 )
 
 const (
-    Version = "1.01"
+    Version = "1.02"
 )
+
+// Like fmt.Errorf(), except adds the (base) file name and line number to the
+// beginning of the error message in the format `[%s:%d] `.
+func Errorf(fmt_str string, args ...interface{}) error {
+    _, file_name, line, ok := runtime.Caller(1)
+
+    err_str := fmt.Sprintf(fmt_str, args...)
+
+    if ok {
+        file_name = path.Base(file_name)
+        err_str = fmt.Sprintf("[%s:%d] ", file_name, line) + err_str
+
+    }
+
+    return errors.New(err_str)
+}
+
+// Like fmt.Errorf(), except adds the full file name and line number to the
+// beginning of the error message in the format `[%s:%d] `.
+func ErrorfLong(fmt_str string, args ...interface{}) error {
+    _, file_name, line, ok := runtime.Caller(1)
+
+    err_str := fmt.Sprintf(fmt_str, args...)
+
+    if ok {
+        err_str = fmt.Sprintf("[%s:%d] ", file_name, line) + err_str
+
+    }
+
+    return errors.New(err_str)
+}
 
 // Signature for Close() function return from OpenFileW and
 // OpenFileRO. When ready to close the file, call the function to
