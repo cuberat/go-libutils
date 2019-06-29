@@ -34,7 +34,7 @@ import (
 // Implements the KeyedRecordEncoder and KeyedRecordDecoder interfaces specified
 // by `github.com/cuberat/go-libutils/libutils`.
 //
-// This codec serializes and deserializes keyed records where the is
+// This codec serializes and deserializes keyed records where the key is
 // length-prefixed using a varint. The value immediately follows and consists of
 // length-prefixed strings represented an array/list of strings. That is,
 //
@@ -43,6 +43,7 @@ type VILPColsKRCodec struct {
 
 }
 
+// Returns a new VILPColsKRCodec
 func NewVILPColsKRCodec () (*VILPColsKRCodec) {
     return new(VILPColsKRCodec)
 }
@@ -147,6 +148,7 @@ func NewVILPColsKRWriter (w io.Writer) (*VILPColsKRWriter) {
     return krw
 }
 
+// The Write method for the KeyedRecordWriter interface
 func (krw *VILPColsKRWriter) Write(rec *KeyedRecord) (int, error) {
     rec_out_bytes, err := rec.RecordBytesOut(krw.encoder)
     if err != nil {
