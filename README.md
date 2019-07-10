@@ -5,6 +5,7 @@
 
 * [Overview](#pkg-overview)
 * [Index](#pkg-index)
+* [Subdirectories](#pkg-subdirectories)
 
 ## <a name="pkg-overview">Overview</a>
 The libutils package provides various utilities for working in Go.
@@ -23,6 +24,9 @@ Installation
 * [func AddCompressionLayer(w io.Writer, suffix string) (io.Writer, CloseFunc, error)](#AddCompressionLayer)
 * [func AddDecompressionLayer(r io.Reader, suffix string) (io.Reader, CloseFunc, error)](#AddDecompressionLayer)
 * [func BytesToVILP(data []byte) []byte](#BytesToVILP)
+* [func CreateFile(outfile string) (io.WriteCloser, error)](#CreateFile)
+* [func CreateFileBuffered(outfile string, size int) (io.WriteCloser, error)](#CreateFileBuffered)
+* [func CreateFileSync(outfile string) (io.WriteCloser, error)](#CreateFileSync)
 * [func DecodeVarint(data_in []byte) (uint64, int, error)](#DecodeVarint)
 * [func EncodeVarint(int_in uint64) []byte](#EncodeVarint)
 * [func Errorf(fmt_str string, args ...interface{}) error](#Errorf)
@@ -30,6 +34,7 @@ Installation
 * [func NewPrefixLenScanner(r io.Reader) *bufio.Scanner](#NewPrefixLenScanner)
 * [func NewVILPScanner(r io.Reader) *bufio.Scanner](#NewVILPScanner)
 * [func NewVILPScannerF(file_path string) (*bufio.Scanner, CloseFunc, error)](#NewVILPScannerF)
+* [func OpenFile(infile string) (io.ReadCloser, error)](#OpenFile)
 * [func OpenFileRO(infile string) (io.Reader, CloseFunc, error)](#OpenFileRO)
 * [func OpenFileW(outfile string) (io.Writer, CloseFunc, error)](#OpenFileW)
 * [func OpenPipesToWriter(final_writer io.Writer, progs [][]string) (io.Writer, CloseFunc, error)](#OpenPipesToWriter)
@@ -55,6 +60,9 @@ Installation
   * [func NewPrefixLenWriter(w io.Writer) *PrefixLenWriter](#NewPrefixLenWriter)
   * [func (plw *PrefixLenWriter) Write(p []byte) (int, error)](#PrefixLenWriter.Write)
   * [func (plw *PrefixLenWriter) WriteString(s string) (int, error)](#PrefixLenWriter.WriteString)
+* [type ReaderCloser](#ReaderCloser)
+  * [func (rc *ReaderCloser) Close() error](#ReaderCloser.Close)
+  * [func (rc *ReaderCloser) Read(p []byte) (n int, err error)](#ReaderCloser.Read)
 * [type TabColsKRCodec](#TabColsKRCodec)
   * [func NewTabColsKRCodec() *TabColsKRCodec](#NewTabColsKRCodec)
   * [func (krc *TabColsKRCodec) CodecSame() bool](#TabColsKRCodec.CodecSame)
@@ -90,16 +98,19 @@ Installation
   * [func NewVILPWriterF(file_path string) (*VILPWriter, CloseFunc, error)](#NewVILPWriterF)
   * [func (plw *VILPWriter) Write(p []byte) (int, error)](#VILPWriter.Write)
   * [func (plw *VILPWriter) WriteString(s string) (int, error)](#VILPWriter.WriteString)
+* [type WriterCloser](#WriterCloser)
+  * [func (wc *WriterCloser) Close() error](#WriterCloser.Close)
+  * [func (wc *WriterCloser) Write(p []byte) (n int, err error)](#WriterCloser.Write)
 
 
 #### <a name="pkg-files">Package files</a>
-[keyed_record.go](/src/github.com/cuberat/go-libutils/libutils/keyed_record.go) [libutils.go](/src/github.com/cuberat/go-libutils/libutils/libutils.go) [prefix_len.go](/src/github.com/cuberat/go-libutils/libutils/prefix_len.go) [tab_cols_kr.go](/src/github.com/cuberat/go-libutils/libutils/tab_cols_kr.go) [varint.go](/src/github.com/cuberat/go-libutils/libutils/varint.go) [vilp.go](/src/github.com/cuberat/go-libutils/libutils/vilp.go) [vilp_cols_kr.go](/src/github.com/cuberat/go-libutils/libutils/vilp_cols_kr.go) 
+[io.go](/src/github.com/cuberat/go-libutils/libutils/io.go) [keyed_record.go](/src/github.com/cuberat/go-libutils/libutils/keyed_record.go) [libutils.go](/src/github.com/cuberat/go-libutils/libutils/libutils.go) [prefix_len.go](/src/github.com/cuberat/go-libutils/libutils/prefix_len.go) [tab_cols_kr.go](/src/github.com/cuberat/go-libutils/libutils/tab_cols_kr.go) [varint.go](/src/github.com/cuberat/go-libutils/libutils/varint.go) [vilp.go](/src/github.com/cuberat/go-libutils/libutils/vilp.go) [vilp_cols_kr.go](/src/github.com/cuberat/go-libutils/libutils/vilp_cols_kr.go) 
 
 
 ## <a name="pkg-constants">Constants</a>
 ``` go
 const (
-    Version = "1.02"
+    Version = "1.03"
 )
 ```
 
@@ -112,7 +123,7 @@ var (
 ```
 
 
-## <a name="AddCompressionLayer">func</a> [AddCompressionLayer](/src/target/libutils.go?s=5679:5765#L181)
+## <a name="AddCompressionLayer">func</a> [AddCompressionLayer](/src/target/io.go?s=9613:9699#L330)
 ``` go
 func AddCompressionLayer(w io.Writer, suffix string) (io.Writer,
     CloseFunc, error)
@@ -131,7 +142,7 @@ compression layer properly.
 
 
 
-## <a name="AddDecompressionLayer">func</a> [AddDecompressionLayer](/src/target/libutils.go?s=6599:6687#L217)
+## <a name="AddDecompressionLayer">func</a> [AddDecompressionLayer](/src/target/io.go?s=10533:10621#L366)
 ``` go
 func AddDecompressionLayer(r io.Reader, suffix string) (io.Reader,
     CloseFunc, error)
@@ -159,6 +170,46 @@ byte slice.
 
 
 
+## <a name="CreateFile">func</a> [CreateFile](/src/target/io.go?s=4165:4220#L136)
+``` go
+func CreateFile(outfile string) (io.WriteCloser, error)
+```
+Shortcut for calling `CreateFileBuffered()` with the default buffer size.
+Equivalent to `CreateFileBuffered()` with 0 as the size parameter.
+
+
+
+## <a name="CreateFileBuffered">func</a> [CreateFileBuffered](/src/target/io.go?s=5095:5168#L159)
+``` go
+func CreateFileBuffered(outfile string, size int) (io.WriteCloser, error)
+```
+Open a file for writing (buffered). The `size` argument indicates that the
+underlying buffer should be at least `size` bytes. If `size` < 0, open the
+file with no buffering. If `size` == 0, a size of 16K is used. If the file
+name ends in a supported compression suffix, output will be compressed in
+that format.
+
+Supported compression:
+
+
+	gzip  (.gz)
+	bzip2 (.bz2) -- calls external program
+	xz    (.xz)  -- calls external program
+
+Be sure to call `Close()` explicitly to flush any buffers and properly shut
+down any compression layers.
+
+
+
+## <a name="CreateFileSync">func</a> [CreateFileSync](/src/target/io.go?s=4409:4468#L142)
+``` go
+func CreateFileSync(outfile string) (io.WriteCloser, error)
+```
+Non-buffered version of `CreateFile()` and `CreateFileBuffered()`. Equivalent
+to `CreateFileBuffered()` with -1 as the size parameter.
+
+
+
 ## <a name="DecodeVarint">func</a> [DecodeVarint](/src/target/varint.go?s=1610:1664#L25)
 ``` go
 func DecodeVarint(data_in []byte) (uint64, int, error)
@@ -179,7 +230,7 @@ for the specification.
 
 
 
-## <a name="Errorf">func</a> [Errorf](/src/target/libutils.go?s=2024:2078#L47)
+## <a name="Errorf">func</a> [Errorf](/src/target/libutils.go?s=1958:2012#L43)
 ``` go
 func Errorf(fmt_str string, args ...interface{}) error
 ```
@@ -188,7 +239,7 @@ beginning of the error message in the format `[%s:%d] `.
 
 
 
-## <a name="ErrorfLong">func</a> [ErrorfLong](/src/target/libutils.go?s=2476:2534#L63)
+## <a name="ErrorfLong">func</a> [ErrorfLong](/src/target/libutils.go?s=2410:2468#L59)
 ``` go
 func ErrorfLong(fmt_str string, args ...interface{}) error
 ```
@@ -227,10 +278,31 @@ provided file. Call close_func() to close the underlying file handle.
 
 
 
-## <a name="OpenFileRO">func</a> [OpenFileRO](/src/target/libutils.go?s=4526:4586#L137)
+## <a name="OpenFile">func</a> [OpenFile](/src/target/io.go?s=8530:8581#L289)
+``` go
+func OpenFile(infile string) (io.ReadCloser, error)
+```
+Opens a file in read-only mode. If the file name ends in a supported
+compression suffix, input with be decompressed.
+
+Supported decompression:
+
+
+	gzip  (.gz)
+	bzip2 (.bz2)
+	xz    (.xz) -- calls external program
+
+Call Close() on the returned io.ReaderCloser to avoid leaking filehandles and
+to proplery shut down any compression layers.
+
+
+
+## <a name="OpenFileRO">func</a> [OpenFileRO](/src/target/io.go?s=7329:7389#L244)
 ``` go
 func OpenFileRO(infile string) (io.Reader, CloseFunc, error)
 ```
+**Deprecated** Use `OpenFile()` instead.
+
 Opens a file in read-only mode. If the file name ends in a supported
 compression suffix, input with be decompressed.
 
@@ -246,11 +318,13 @@ properly.
 
 
 
-## <a name="OpenFileW">func</a> [OpenFileW](/src/target/libutils.go?s=3289:3349#L91)
+## <a name="OpenFileW">func</a> [OpenFileW](/src/target/io.go?s=3107:3167#L98)
 ``` go
 func OpenFileW(outfile string) (io.Writer, CloseFunc, error)
 ```
-Open a file for writing. If the file name dends in a supported
+**Deprecated** Use `CreateFileSync()` or `CreateFile()` instead.
+
+Open a file for writing. If the file name ends in a supported
 compression suffix, output will be compressed in that format.
 
 Supported compression:
@@ -265,7 +339,7 @@ properly.
 
 
 
-## <a name="OpenPipesToWriter">func</a> [OpenPipesToWriter](/src/target/libutils.go?s=7821:7919#L254)
+## <a name="OpenPipesToWriter">func</a> [OpenPipesToWriter](/src/target/io.go?s=11755:11853#L403)
 ``` go
 func OpenPipesToWriter(final_writer io.Writer,
     progs [][]string) (io.Writer, CloseFunc, error)
@@ -301,7 +375,7 @@ A bufio.SplitFunc that reads length-prefixed strings from a reader.
 
 
 
-## <a name="CloseFunc">type</a> [CloseFunc](/src/target/libutils.go?s=2904:2928#L79)
+## <a name="CloseFunc">type</a> [CloseFunc](/src/target/io.go?s=1711:1735#L32)
 ``` go
 type CloseFunc func()
 ```
@@ -585,6 +659,35 @@ underlying io.Writer. This uses 32-bit integers for the length prefix.
 
 Deprecated: use VILPWriter and its corresponding methods.
 
+
+
+
+## <a name="ReaderCloser">type</a> [ReaderCloser](/src/target/io.go?s=2225:2297#L61)
+``` go
+type ReaderCloser struct {
+    // contains filtered or unexported fields
+}
+```
+
+
+
+
+
+
+
+
+
+### <a name="ReaderCloser.Close">func</a> (\*ReaderCloser) [Close](/src/target/io.go?s=2391:2428#L70)
+``` go
+func (rc *ReaderCloser) Close() error
+```
+
+
+
+### <a name="ReaderCloser.Read">func</a> (\*ReaderCloser) [Read](/src/target/io.go?s=2299:2356#L66)
+``` go
+func (rc *ReaderCloser) Read(p []byte) (n int, err error)
+```
 
 
 
@@ -991,6 +1094,35 @@ func (plw *VILPWriter) WriteString(s string) (int, error)
 Writes the provided string as a length-prefixed string to the
 underlying io.Writer
 
+
+
+
+## <a name="WriterCloser">type</a> [WriterCloser](/src/target/io.go?s=1768:1840#L36)
+``` go
+type WriterCloser struct {
+    // contains filtered or unexported fields
+}
+```
+
+
+
+
+
+
+
+
+
+### <a name="WriterCloser.Close">func</a> (\*WriterCloser) [Close](/src/target/io.go?s=2107:2144#L53)
+``` go
+func (wc *WriterCloser) Close() error
+```
+
+
+
+### <a name="WriterCloser.Write">func</a> (\*WriterCloser) [Write](/src/target/io.go?s=2013:2071#L49)
+``` go
+func (wc *WriterCloser) Write(p []byte) (n int, err error)
+```
 
 
 
