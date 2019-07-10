@@ -13,6 +13,7 @@ import (
     "path"
     "os"
     "runtime"
+    "strings"
     "testing"
 )
 
@@ -283,6 +284,10 @@ func test_compressed_writer(compress_name, file_ext string) (bool, error) {
     }
     out_file := tmp_fh.Name()
     tmp_fh.Close()
+
+    if !strings.HasSuffix(out_file, "." + file_ext) {
+        out_file += "." + file_ext
+    }
 
     md5_data_in_file, err := file_md5(data_in_file)
 
